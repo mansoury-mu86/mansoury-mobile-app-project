@@ -1,0 +1,225 @@
+MainActivity.java
+=====================================
+
+package com.example.musicplayer;
+
+import android.content.Intent;
+import android.media.MediaPlayer;
+import android.net.Uri;
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.SeekBar;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
+import java.util.ArrayList;
+import java.util.List;
+
+public class MainActivity extends AppCompatActivity {
+    MediaPlayer mp;
+    SeekBar seek;
+    TextView name, time;
+    Button play, prev, next, add;
+    List<String> songs = new ArrayList<>();
+    int now = 0;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        name = findViewById(R.id.songName);
+        time = findViewById(R.id.timeText);
+        seek = findViewById(R.id.seekBar);
+        play = findViewById(R.id.playBtn);
+        prev = findViewById(R.id.prevBtn);
+        next = findViewById(R.id.nextBtn);
+        add = findViewById(R.id.addBtn);
+
+        mp = new MediaPlayer();
+
+        play.setOnClickListener(v -> playToggle());
+        next.setOnClickListener(v -> playNext());
+        prev.setOnClickListener(v -> playPrev());
+        add.setOnClickListener(v -> pickFile());
+
+        seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            public void onProgressChanged(SeekBar s, int p, boolean b) {
+                if (b) mp.seekTo(p);
+            }
+            public void onStartTrackingTouch(SeekBar s) {}
+            public void onStopTrackingTouch(SeekBar s) {}
+        });
+
+        updateProgress();
+    }
+
+    void playToggle() {
+        if (songs.isEmpty()) {
+            Toast.makeText(this, "Add music file", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (mp.isPlaying()) {
+            mp.pause();
+            play.setText("▶");
+        } else {
+            play(now);
+        }
+    }
+
+    void play(int i) {
+        try {
+            mp.reset();
+            mp.setDataSource(this, Uri.parse(songs.get(i)));
+            mp.prepare();
+            mp.start();
+            play.setText("⏸");
+            now = i;
+        } catch (Exception e) {}
+    }
+
+    void playNext() {
+        if (songs.isEmpty()) return;
+        play((now + 1) % songs.size());
+    }
+
+    void playPrev() {
+        if (songs.isEmpty()) return;
+        play((now - 1 + songs.size()) % songs.size());
+    }
+
+    void pickFile() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("audio/*");
+        startActivityForResult(i, 1);
+    }
+
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req == 1 && res == -1 && data != null) {
+            Uri uri = data.getData();
+            if (uri != null) {
+                songs.add(uri.toString());
+                Toast.makeText(this, "Added", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    void updateProgress() {
+        new Thread(() -> {
+            while (true) {
+                try {
+                    if (mp.isPlaying()) {
+                        seek.setMax(mp.getDuration());
+                        seek.setProgress(mp.getCurrentPosition());
+                        int c = mp.getCurrentPosition() / 1000;
+                        int t = mp.getDuration() / 1000;
+                        runOnUiThread(() -> time.setText(c/60 + ":" + (c%60<10?"0":"") + c%60 + " / " + t/60 + ":" + (t%60<10?"0":"") + t%60));
+                    }
+                    Thread.sleep(500);
+                } catch (Exception e) {}
+            }
+        }).start();
+    }
+
+    protected void onDestroy() {
+        super.onDestroy();
+        if (mp != null) mp.release();
+    }
+}
+
+
+activity_main.xml
+=====================================
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="20dp"
+    android:background="#1a1a2e">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Music Player"
+        android:textSize="24sp"
+        android:textColor="#fff"
+        android:layout_marginBottom="20dp" />
+
+    <TextView
+        android:id="@+id/songName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="No song selected"
+        android:textColor="#fff"
+        android:textSize="16sp"
+        android:layout_marginBottom="20dp" />
+
+    <SeekBar
+        android:id="@+id/seekBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp" />
+
+    <TextView
+        android:id="@+id/timeText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0:00 / 0:00"
+        android:textColor="#888"
+        android:textSize="12sp"
+        android:layout_marginBottom="20dp" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginBottom="20dp">
+
+        <Button
+            android:id="@+id/prevBtn"
+            android:layout_width="45dp"
+            android:layout_height="45dp"
+            android:text="<<"
+            android:textSize="20sp"
+            android:layout_marginRight="10dp" />
+
+        <Button
+            android:id="@+id/playBtn"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:text="PLAY"
+            android:textSize="16sp"
+            android:layout_marginRight="10dp" />
+
+        <Button
+            android:id="@+id/nextBtn"
+            android:layout_width="45dp"
+            android:layout_height="45dp"
+            android:text=">>"
+            android:textSize="20sp" />
+
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/addBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Add Music File"
+        android:textSize="16sp" />
+
+</LinearLayout>
+
+
+AndroidManifest.xml
+=====================================
+
+Add these lines before </manifest>:
+
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.INTERNET" />
